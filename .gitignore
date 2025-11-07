@@ -1,0 +1,17 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/trapflow
+trapflow.so
+trapflow.dylib
+trapflow.dll
+trapflow.a
+trapflow.lib
+trapflow-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
+.history

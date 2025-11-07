@@ -1,0 +1,9 @@
+{
+	"authors": [
+		"Zenw"
+	],
+	"copyright": "Copyright © 2025, Zenw",
+	"description": "pattern match library",
+	"license": "MIT",
+	"name": "trapflow"
+}

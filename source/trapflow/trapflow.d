@@ -32,10 +32,6 @@ struct FlowImpl(T,S){
     auto opCall(S lhs)=> justMatchNow && !matched ? FlowImpl(value,x=>lhs,true,false) : this;
     auto opCall(S delegate(T) dg) => justMatchNow && !matched ? FlowImpl(value,dg,true,false) : this;
 
-    auto opDispatch(string name)() if(name == T.stringof && is(T == struct)){
-        return FuzzyImpl(value,dg,matched);
-    }
-
     struct TrapImpl{
         T value;
         S delegate(T) dg;
@@ -45,7 +41,7 @@ struct FlowImpl(T,S){
                 static foreach(idx,arg;args){{
                     bool cond;
                     static if(is(T:Args[idx])) cond = value == arg;
-                    else static if(is(X[idx] == bool)) cond = arg;
+                    else static if(is(Args[idx] : bool)) cond = arg;
                     else cond = false;
                     if(cond){
                         return FlowImpl(value,null,false,true);
@@ -58,69 +54,38 @@ struct FlowImpl(T,S){
              bool opSlice(T v1,T v2)=> v1 <= value && value < v2;
         }
         auto opDollar(size_t idx)(){
-            return NestedFuzzy!(T)(value);
+            static if(is(T == struct)){
+                return NestedFuzzy!(T)(value);
+            }
+            else{
+                return value;
+            }
         }
-        auto opDispatch(string name)() if(name == T.stringof && is(T == struct)){
-            return FuzzyImpl(value,dg,matched);
-        }
-
     }
     
     private alias FieldTypes = FieldTypeTuple!T;
 
-    private struct NestedFuzzy(U){
-        U value;
-        bool opIndex(Args...)(Args args) if(Args.length == U.tupleof.length){
-            bool cond = true;
-            static foreach(idx,arg;args){
-                static if(is(Args[idx] : typeof(U.tupleof[idx]))) cond &= value.tupleof[idx] == arg;
-                else static if(is(Args[idx] : bool)) cond &= arg;
-                else cond &= false;
-            }
-            return cond;
+   
+
+}
+ private struct NestedFuzzy(T){
+    T value;
+    private alias FieldTypes = FieldTypeTuple!T;
+    bool opIndex(Args...)(Args args) if(Args.length == T.tupleof.length){
+        bool cond = true;
+        static foreach(idx,arg;args){
+            static if(is(Args[idx] : FieldTypes[idx])) cond &= value.tupleof[idx] == arg;
+            else static if(is(Args[idx] : bool)) cond &= arg;
+            else cond &= false;
         }
-        auto opDollar(size_t idx)(){
-            alias FTU = FieldTypeTuple!U;
-            static if(is(FTU[idx] == struct)){
-                return NestedFuzzy!(FTU[idx])(value.tupleof[idx]);
-            }
-            else{
-                return Fuzzy!(FTU[idx])(value.tupleof[idx]);
-            }
-        }
+        return cond;
     }
-    private struct Fuzzy(X){
-        X value;
-        alias value this;
-    }
-    private struct FuzzyImpl{
-        T value;
-        S delegate(T) dg;
-        bool matched;
-        this(T v, S delegate(T) dg, bool m){
-            this.value = v;
-            this.dg = dg;
-            this.matched = m;
+    auto opDollar(size_t idx)(){
+        static if(is(FieldTypes[idx] == struct)){
+            return NestedFuzzy!(FieldTypes[idx])(value.tupleof[idx]);
         }
-        auto opDollar(size_t idx)(){
-            static if(is(FieldTypes[idx] == struct)){
-                return NestedFuzzy!(FieldTypes[idx])(value.tupleof[idx]);
-            }
-            else{
-                return Fuzzy!(FieldTypes[idx])(value.tupleof[idx]);
-            }
-        }
-        FlowImpl opIndex(Args...)(Args args) if(Args.length == T.tupleof.length){
-            if(!matched){
-                bool cond = true;
-                static foreach(idx,arg;args){
-                    static if(is(Args[idx] : FieldTypes[idx])) cond &= value.tupleof[idx] == arg;
-                    else static if(is(Args[idx] : bool)) cond &= arg;
-                    else cond &= false;
-                }
-                return FlowImpl(value,null,false,cond);
-            }
-            return FlowImpl(value,dg,matched,false);
+        else{
+            return value.tupleof[idx];
         }
     }
 }

@@ -54,13 +54,46 @@ struct FlowImpl(T,S){
             }
             return FlowImpl(value,dg,matched,false);
         }
-        auto opDollar()=>value;
+        static if(isOrderingComparable!T){
+             bool opSlice(T v1,T v2)=> v1 <= value && value < v2;
+        }
+        auto opDollar(size_t idx)(){
+            return NestedFuzzy!(T)(value);
+        }
         auto opDispatch(string name)() if(name == T.stringof && is(T == struct)){
             return FuzzyImpl(value,dg,matched);
         }
 
     }
-    struct FuzzyImpl{
+    
+    private alias FieldTypes = FieldTypeTuple!T;
+
+    private struct NestedFuzzy(U){
+        U value;
+        bool opIndex(Args...)(Args args) if(Args.length == U.tupleof.length){
+            bool cond = true;
+            static foreach(idx,arg;args){
+                static if(is(Args[idx] : typeof(U.tupleof[idx]))) cond &= value.tupleof[idx] == arg;
+                else static if(is(Args[idx] : bool)) cond &= arg;
+                else cond &= false;
+            }
+            return cond;
+        }
+        auto opDollar(size_t idx)(){
+            alias FTU = FieldTypeTuple!U;
+            static if(is(FTU[idx] == struct)){
+                return NestedFuzzy!(FTU[idx])(value.tupleof[idx]);
+            }
+            else{
+                return Fuzzy!(FTU[idx])(value.tupleof[idx]);
+            }
+        }
+    }
+    private struct Fuzzy(X){
+        X value;
+        alias value this;
+    }
+    private struct FuzzyImpl{
         T value;
         S delegate(T) dg;
         bool matched;
@@ -69,13 +102,13 @@ struct FlowImpl(T,S){
             this.dg = dg;
             this.matched = m;
         }
-        private struct Fuzzy(X){
-            X value;
-            alias value this;
-        }
-        private alias FieldTypes = FieldTypeTuple!T;
         auto opDollar(size_t idx)(){
-            return Fuzzy!(FieldTypes[idx])(value.tupleof[idx]);
+            static if(is(FieldTypes[idx] == struct)){
+                return NestedFuzzy!(FieldTypes[idx])(value.tupleof[idx]);
+            }
+            else{
+                return Fuzzy!(FieldTypes[idx])(value.tupleof[idx]);
+            }
         }
         FlowImpl opIndex(Args...)(Args args) if(Args.length == T.tupleof.length){
             if(!matched){

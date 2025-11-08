@@ -1,27 +1,45 @@
-import std.stdio;
-import trapflow.trapflow;
+import std;
+import trapflow;
 
 void main()
 {
-	auto x1 = 1.flow("default")
-		.trap[5]( "five" )
-		.trap[10]( "ten" )
-		.trap[15]( "fifteen" )
-		.trap[$]("other")
-		.result;
-	writeln(x1); // Output: ten
+	{
+		auto x = 10.flow!string
+			.trap[5]( "5" )
+			.trap[$ <= 4](" <= 4")
+			.trap[10,12]( "10 12" )
+			.trap[15 .. 20]( "15 16 17 18 19" )
+			.trap[$]("other") 
+			.result;
+		writeln(x); // Output: ten
+	}	
 
-	struct MyStruct { int a; string b; }
-	auto x2 = MyStruct(2,"hello").flow("default")
-		.trap[ $[1,"one"] ]( "struct one" )
-		.trap[ $[2,$] ]( "struct two or more" )
-		.result;
-	writeln(x2); // Output: struct two or more
+	{
+		struct Inner { int a; string b; }
+		struct Outer { Inner s; int t; }
+		auto x = Outer( Inner(3,"three"), 33 ).flow("default")
+			.trap[ $[$[1,"one"], $] ]	( "case 1" )
+			.trap[ $[ $ , 22] ]			( "case 2" )
+			.trap[ $[$[$ ,"three"] , 33] ]	( "case 3" )
+			.result;
+		writeln(x); // Output: struct2 with struct three
+	}
 
-	struct MyStruct2 { MyStruct s; int t; }
-	auto x3 = MyStruct2( MyStruct(3,"three"), 30 ).flow("default")
-		.trap[ $[$[1,"one"], $] ]( "struct2 with struct one" )
-		.trap[ $[$[3,$] , 30] ]( "struct2 with struct three" )
-		.result;
-	writeln(x3); // Output: struct2 with struct three
+	{
+		auto x = [1,2,3].flow!int
+			.trap[ [] ] ( 0 )
+			.trap[ []]
+			.result;
+		writeln(x); // Output: one two three
+	}
+
+	foreach(idx;1..10){
+		auto fizzbuzz = tuple(idx % 3, idx % 5).flow!string
+			.trap[ $[0,0] ] ( "FizzBuzz")
+			.trap[ $[0,$] ] ( "Fizz" )
+			.trap[ $[$,0] ] ( "Buzz" )
+			.trap[ $      ] ( idx.to!string )
+			.result;
+		writeln(fizzbuzz, " ");
+	}
 }

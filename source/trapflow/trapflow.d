@@ -3,10 +3,7 @@ import trapflow.nestedFuzzy;
 import std;
 
 auto flow(T,S)(T v, lazy S _){
-    return FlowImpl!(T,S)(v,x=>_,false,false);
-}
-auto flow(T,S)(T v, S delegate(T) _){
-    return FlowImpl!(T,S)(v,x=>_,false,false);
+    return FlowImpl!(T,S)(v,x=>_(),false,false);
 }
 auto flow(T)(T v){
     return FlowImpl!(T,void)(v,null, false,false);
@@ -58,17 +55,6 @@ struct FlowImpl(T,S){
                     static if(is(T:Args[idx])) cond = value == arg;
                     else static if(is(Args[idx] : bool)) cond = arg;
                     else static if(is(Args[idx] : NestedFuzzy!T)) cond = true;
-                    else static if(isCallable!(Args[idx]) && is(T : ReturnType!(Args[idx]) ) ){
-                        alias Func = Args[idx];
-                        alias Params = ParameterTypeTuple!Func;
-                        alias Names = ParameterIdentifierTuple!Func;
-                        static foreach(i ; 0.. Params.length){
-                            static if(is(Params[i] == T)){
-                                enum name = Names[i].stringof;
-                                mixin("auto " ~ name ~ " = value;");
-                            }
-                        }
-                    }
                     else cond = false;
                     if(cond){
                         return FlowImpl(value,dg,false,true);
@@ -92,6 +78,48 @@ struct FlowImpl(T,S){
     
     private alias FieldTypes = FieldTypeTuple!T;
 
-   
+}
 
+
+unittest{ // 
+	auto x = 10.flow!string
+		.trap[5]( "5" )
+		.trap[$ <= 4](" <= 4")
+		.trap[10,12]( "10 12" )
+		.trap[15 .. 20]( "15 16 17 18 19" )
+		.trap[$]("other") 
+		.result;
+	assert(x == "10 12");
+}	
+
+unittest{// nested strcut
+	struct Inner { int a; string b; }
+	struct Outer { Inner s; int t; }
+	auto x = Outer( Inner(3,"three"), 33 ).flow("default")
+		.trap[ $[$[1,"one"], $] ]	( "case 1" )
+		.trap[ $[ $ , 22] ]			( "case 2" )
+		.trap[ $[$[$ ,"three"] , 33] ]	( "case 3" )
+		.result;
+	assert(x == "case 3"); //
+}
+
+unittest{
+	auto sum = (int[] arr){
+		return arr.flow!int
+			.trap[ [] ] ( 0 )
+			.trap[ $ ]  ( (x)=> x[0]+sum(x[1..$]) )
+			.result;
+	};
+	assert(sum([1,2,3,4,5]) == 15);
+}
+
+unittest{
+	foreach(idx;1..10){
+		auto fizzbuzz = tuple(idx % 3, idx % 5).flow!string
+			.trap[ $[0,0] ] ( "FizzBuzz")
+			.trap[ $[0,$] ] ( "Fizz" )
+			.trap[ $[$,0] ] ( "Buzz" )
+			.trap[ $      ] ( idx.to!string )
+			.result;
+	}
 }

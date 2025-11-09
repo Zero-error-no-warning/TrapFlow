@@ -10,23 +10,20 @@ struct NestedFuzzy(T){
     bool opIndex(Args...)(Args args){
         bool cond = true;
         static foreach(idx,arg;args){
-            static if(is(T == struct)){
-                static if( is(Args[idx] : FieldTypes[idx])) cond &= value.tupleof[idx] == arg;
+            static if(is(Args[idx] : bool)) cond = cond && arg;
+            else static if(is(T == struct) && is(Args[idx] : FieldTypes[idx])){
+                cond = cond && value.tupleof[idx] == arg;
             }
-            else static if(isArray!T){
-                static if(is (Args[idx] : ElemType)) cond &= value[idx] == arg;
+            else static if(isArray!T && is (Args[idx] : ElemType)){
+                cond = cond && value[idx] == arg;
             }
-            else static if(is(Args[idx] : bool)) cond &= arg;
-            else cond &= false;
+            else cond = cond && false;
         }
         return cond;
     }
     auto opDollar(size_t idx)(){
         static if(is(T == struct)){
-            static if(is(FieldTypes[idx] == struct)){
-                return NestedFuzzy!(FieldTypes[idx])(value.tupleof[idx]);
-            }
-            else static if(isArray!(FieldTypes[idx])){
+            static if(is(FieldTypes[idx] == struct) || isArray!(FieldTypes[idx]) ){
                 return NestedFuzzy!(FieldTypes[idx])(value.tupleof[idx]);
             }
             else{

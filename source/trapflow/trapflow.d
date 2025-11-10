@@ -27,9 +27,9 @@ struct FlowImpl(T,S){
 
     auto trap()=>TrapImpl(value,dg,matched);
 
-    auto opCall(S lhs){
+    auto opCall(lazy S lhs){
         if(justMatchNow && !matched){
-            this.dg = x=>lhs;
+            this.dg = x=>lhs();
             this.matched = true;
             this.justMatchNow = false;
         }   
